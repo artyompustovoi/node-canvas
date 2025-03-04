@@ -2,23 +2,11 @@
   'conditions': [
     ['OS=="win"', {
       'variables': {
-        'GTK_Root%': 'C:/GTK',  # Set the location of GTK all-in-one bundle
-        'with_jpeg%': 'false',
-        'with_gif%': 'false',
-        'with_rsvg%': 'false',
-        'variables': { # Nest jpeg_root to evaluate it before with_jpeg
-          'jpeg_root%': '<!(node ./util/win_jpeg_lookup)'
-        },
-        'jpeg_root%': '<(jpeg_root)', # Take value of nested variable
-        'conditions': [
-          ['jpeg_root==""', {
-            'with_jpeg%': 'false'
-          }, {
-            'with_jpeg%': 'true'
-          }]
-        ]
+        'with_jpeg%': '<!(node ./util/has_lib.js jpeg)',
+        'with_gif%': '<!(node ./util/has_lib.js gif)',
+        'with_rsvg%': '<!(node ./util/has_lib.js rsvg)'
       }
-    }, {  # 'OS!="win"'
+    }, { # 'OS!="win"'
       'variables': {
         'with_jpeg%': '<!(node ./util/has_lib.js jpeg)',
         'with_gif%': '<!(node ./util/has_lib.js gif)',
@@ -32,26 +20,7 @@
       'dependencies': ['canvas'],
       'conditions': [
         ['OS=="win"', {
-          'copies': [{
-            'destination': '<(PRODUCT_DIR)',
-            'files': [
-              '<(GTK_Root)/bin/zlib1.dll',
-              '<(GTK_Root)/bin/libintl-8.dll',
-              '<(GTK_Root)/bin/libpng14-14.dll',
-              '<(GTK_Root)/bin/libpangocairo-1.0-0.dll',
-              '<(GTK_Root)/bin/libpango-1.0-0.dll',
-              '<(GTK_Root)/bin/libpangoft2-1.0-0.dll',
-              '<(GTK_Root)/bin/libpangowin32-1.0-0.dll',
-              '<(GTK_Root)/bin/libcairo-2.dll',
-              '<(GTK_Root)/bin/libfontconfig-1.dll',
-              '<(GTK_Root)/bin/libfreetype-6.dll',
-              '<(GTK_Root)/bin/libglib-2.0-0.dll',
-              '<(GTK_Root)/bin/libgobject-2.0-0.dll',
-              '<(GTK_Root)/bin/libgmodule-2.0-0.dll',
-              '<(GTK_Root)/bin/libgthread-2.0-0.dll',
-              '<(GTK_Root)/bin/libexpat-1.dll'
-            ]
-          }]
+          'copies': [] # Remove copies section, as we don't need to copy DLLs
         }]
       ]
     },
@@ -81,25 +50,25 @@
       'conditions': [
         ['OS=="win"', {
           'libraries': [
-            '-l<(GTK_Root)/lib/cairo.lib',
-            '-l<(GTK_Root)/lib/libpng.lib',
-            '-l<(GTK_Root)/lib/pangocairo-1.0.lib',
-            '-l<(GTK_Root)/lib/pango-1.0.lib',
-            '-l<(GTK_Root)/lib/freetype.lib',
-            '-l<(GTK_Root)/lib/glib-2.0.lib',
-            '-l<(GTK_Root)/lib/gobject-2.0.lib'
+            '<!@(pkg-config cairo --libs)',
+            '<!@(pkg-config libpng16 --libs)',
+            '<!@(pkg-config pangocairo --libs)',
+            '<!@(pkg-config pango --libs)',
+            '<!@(pkg-config freetype2 --libs)',
+            '<!@(pkg-config glib-2.0 --libs)',
+            '<!@(pkg-config gobject-2.0 --libs)'
           ],
           'include_dirs': [
-            '<(GTK_Root)/include',
-            '<(GTK_Root)/include/cairo',
-            '<(GTK_Root)/include/pango-1.0',
-            '<(GTK_Root)/include/glib-2.0',
-            '<(GTK_Root)/include/freetype2',
-            '<(GTK_Root)/lib/glib-2.0/include'
+            '<!@(pkg-config cairo --cflags-only-I | sed s/-I//g)',
+            '<!@(pkg-config libpng16 --cflags-only-I | sed s/-I//g)',
+            '<!@(pkg-config pango --cflags-only-I | sed s/-I//g)',
+            '<!@(pkg-config pangocairo --cflags-only-I | sed s/-I//g)',
+            '<!@(pkg-config freetype2 --cflags-only-I | sed s/-I//g)',
+            '<!@(pkg-config glib-2.0 --cflags-only-I | sed s/-I//g)'
           ],
           'defines': [
-            '_USE_MATH_DEFINES',  # for M_PI
-            'NOMINMAX' # allow std::min/max to work
+            '_USE_MATH_DEFINES',
+            'NOMINMAX'
           ],
           'configurations': {
             'Debug': {
@@ -125,7 +94,7 @@
               }
             }
           }
-        }, {  # 'OS!="win"'
+        }, { # 'OS!="win"'
           'libraries': [
             '<!@(pkg-config pixman-1 --libs)',
             '<!@(pkg-config cairo --libs)',
@@ -156,17 +125,12 @@
           ],
           'conditions': [
             ['OS=="win"', {
-              'copies': [{
-                'destination': '<(PRODUCT_DIR)',
-                'files': [
-                  '<(jpeg_root)/bin/jpeg62.dll',
-                ]
-              }],
+              'copies': [], # Remove copies section
               'include_dirs': [
-                '<(jpeg_root)/include'
+                '<!@(pkg-config libjpeg --cflags-only-I | sed s/-I//g)'
               ],
               'libraries': [
-                '-l<(jpeg_root)/lib/jpeg.lib',
+                '<!@(pkg-config libjpeg --libs)'
               ]
             }, {
               'include_dirs': [
@@ -185,15 +149,11 @@
           'conditions': [
             ['OS=="win"', {
               'libraries': [
-                '-l<(GTK_Root)/lib/gif.lib'
+                '<!@(pkg-config giflib --libs)'
               ]
             }, {
-              'include_dirs': [
-                '/opt/homebrew/include'
-              ],
               'libraries': [
-                '-L/opt/homebrew/lib',
-                '-lgif'
+                '<!@(pkg-config giflib --libs)'
               ]
             }]
           ]
@@ -204,19 +164,12 @@
           ],
           'conditions': [
             ['OS=="win"', {
-              'copies': [{
-                'destination': '<(PRODUCT_DIR)',
-                'files': [
-                  '<(GTK_Root)/bin/librsvg-2-2.dll',
-                  '<(GTK_Root)/bin/libgdk_pixbuf-2.0-0.dll',
-                  '<(GTK_Root)/bin/libgio-2.0-0.dll',
-                  '<(GTK_Root)/bin/libcroco-0.6-3.dll',
-                  '<(GTK_Root)/bin/libgsf-1-114.dll',
-                  '<(GTK_Root)/bin/libxml2-2.dll'
-                ]
-              }],
+              'copies': [], # Remove copies section
+              'include_dirs': [
+                '<!@(pkg-config librsvg-2.0 --cflags-only-I | sed s/-I//g)'
+              ],
               'libraries': [
-                '-l<(GTK_Root)/lib/librsvg-2-2.lib'
+                '<!@(pkg-config librsvg-2.0 --libs)'
               ]
             }, {
               'include_dirs': [
